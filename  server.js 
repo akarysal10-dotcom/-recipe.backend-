@@ -1,1 +1,53 @@
-console.log("Backend server is running.");
+const express = require("express");
+const app = express();
+const port = 3000;
+
+app.use(express.json());
+
+let recipes = [
+  {
+    id: "recipe-001",
+    title: "Pancakes",
+    steps: ["Mix ingredients", "Heat the pan", "Cook pancakes"]
+  }
+];
+
+app.get("/", (req, res) => {
+  res.send("Recipe Manager backend is running.");
+});
+
+app.get("/recipe/list", (req, res) => {
+  res.json({ itemList: recipes });
+});
+
+app.get("/recipe/get/:id", (req, res) => {
+  const recipe = recipes.find(r => r.id === req.params.id);
+
+  if (!recipe) {
+    return res.status(404).json({ error: "Recipe not found" });
+  }
+
+  res.json(recipe);
+});
+
+app.post("/recipe/create", (req, res) => {
+  const { title, steps } = req.body;
+
+  if (!title || !steps) {
+    return res.status(400).json({ error: "title and steps are required" });
+  }
+
+  const newRecipe = {
+    id: `recipe-${recipes.length + 1}`,
+    title,
+    steps
+  };
+
+  recipes.push(newRecipe);
+  res.status(201).json(newRecipe);
+});
+
+app.listen(port, () => {
+  console.log(`Backend server is running on port ${port}`);
+});
+
