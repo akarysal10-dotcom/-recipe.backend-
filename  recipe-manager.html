@@ -1,1 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recipe Manager</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #f4f4f0; color: #1a1a1a; min-height: 100vh; }
+    nav { background: #1a1a1a; color: white; padding: 0 2rem; height: 56px; display: flex; align-items: center; gap: 2rem; }
+    nav .logo { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; }
+    nav .nav-links { display: flex; gap: 0.25rem; }
+    nav .nav-links button { background: none; border: none; color: #aaa; padding: 0.4rem 0.75rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-family: inherit; transition: background 0.15s, color 0.15s; }
+    nav .nav-links button.active, nav .nav-links button:hover { background: #2e2e2e; color: white; }
+    .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+    h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 1.5rem; letter-spacing: -0.03em; }
+    h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 1rem; letter-spacing: -0.02em; }
+    .card { background: white; border: 1px solid #e5e5e3; border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .card-header { display: flex; justify-content: space-between; align-items: center; }
+    .card-title { font-weight: 600; font-size: 1rem; cursor: pointer; }
+    .card-title:hover { color: #016a6a; }
+    .card-meta { font-size: 0.8rem; color: #888; margin-top: 0.25rem; }
+    .card-actions { display: flex; gap: 0.4rem; }
+    .btn { border: none; border-radius: 7px; cursor: pointer; font-size: 0.85rem; font-family: inherit; font-weight: 500; padding: 0.45rem 0.9rem; transition: background 0.15s; }
+    .btn-primary { background: #016a6a; color: white; }
+    .btn-primary:hover { background: #014f4f; }
+    .btn-danger { background: #fee2e2; color: #b91c1c; }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-ghost { background: #f0f0ee; color: #444; }
+    .btn-ghost:hover { background: #e4e4e0; }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.8rem; }
+    .form-panel { background: white; border: 1px solid #e5e5e3; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; }
+    .form-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .form-group { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 180px; }
+    label { font-size: 0.82rem; font-weight: 500; color: #555; }
+    input, textarea, select { border: 1px solid #d4d4d0; border-radius: 7px; padding: 0.5rem 0.75rem; font-family: inherit; font-size: 0.9rem; color: #1a1a1a; background: white; outline: none; transition: border-color 0.15s; }
+    input:focus, textarea:focus, select:focus { border-color: #016a6a; }
+    .steps-input { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .step-tag { display: inline-flex; align-items: center; gap: 0.35rem; background: #f0fafa; border: 1px solid #b2d8d8; color: #016a6a; border-radius: 5px; padding: 0.25rem 0.6rem; font-size: 0.8rem; margin: 0.2rem; }
+    .step-tag button { background: none; border: none; cursor: pointer; color: #016a6a; font-size: 0.9rem; line-height: 1; }
+    .ingredient-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid #f0f0ee; }
+    .ingredient-row:last-child { border-bottom: none; }
+    .ingredient-name { font-weight: 500; font-size: 0.9rem; }
+    .ingredient-qty { font-size: 0.82rem; color: #777; }
+    .back-btn { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; color: #555; cursor: pointer; margin-bottom: 1.2rem; background: none; border: none; font-family: inherit; }
+    .back-btn:hover { color: #016a6a; }
+    .steps-list { margin-top: 0.5rem; }
+    .step-item { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid #f0f0ee; font-size: 0.9rem; }
+    .step-num { background: #016a6a; color: white; border-radius: 50%; width: 20px; height: 20px; min-width: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; margin-top: 1px; }
+    .empty { text-align: center; padding: 3rem 1rem; color: #aaa; }
+    .empty .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .badge { background: #f0fafa; color: #016a6a; border: 1px solid #b2d8d8; border-radius: 20px; padding: 0.15rem 0.6rem; font-size: 0.75rem; font-weight: 500; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const INIT_RECIPES = [
+  { id: "recipe-001", title: "Pancakes", steps: ["Mix ingredients", "Heat the pan", "Cook both sides"] },
+  { id: "recipe-002", title: "Omelette", steps: ["Beat eggs", "Add salt and pepper", "Cook on medium heat"] },
+];
+const INIT_INGREDIENTS = [
+  { id: "ingredient-001", recipeId: "recipe-001", name: "Flour",  quantity: 200, unit: "g"   },
+  { id: "ingredient-002", recipeId: "recipe-001", name: "Milk",   quantity: 300, unit: "ml"  },
+  { id: "ingredient-003", recipeId: "recipe-001", name: "Eggs",   quantity: 2,   unit: "pcs" },
+  { id: "ingredient-004", recipeId: "recipe-002", name: "Eggs",   quantity: 3,   unit: "pcs" },
+  { id: "ingredient-005", recipeId: "recipe-002", name: "Butter", quantity: 10,  unit: "g"   },
+];
+
+let rc = 3, ic = 6;
+const nrid = () => `recipe-${String(rc++).padStart(3,"0")}`;
+const niid = () => `ingredient-${String(ic++).padStart(3,"0")}`;
+
+function App() {
+  const [page, setPage]       = useState("recipes");
+  const [recipes, setRecipes] = useState(INIT_RECIPES);
+  const [ings, setIngs]       = useState(INIT_INGREDIENTS);
+  const [detail, setDetail]   = useState(null);
+
+  const createRecipe  = (t,s) => setRecipes(r=>[...r,{id:nrid(),title:t,steps:s}]);
+  const deleteRecipe  = (id) => { setRecipes(r=>r.filter(x=>x.id!==id)); setIngs(i=>i.filter(x=>x.recipeId!==id)); if(detail&&detail.id===id)setDetail(null); };
+  const updateRecipe  = (id,t,s) => { setRecipes(r=>r.map(x=>x.id===id?{...x,title:t,steps:s}:x)); };
+  const createIng     = (rid,n,q,u) => setIngs(i=>[...i,{id:niid(),recipeId:rid,name:n,quantity:Number(q),unit:u}]);
+  const deleteIng     = (id) => setIngs(i=>i.filter(x=>x.id!==id));
+  const updateIng     = (id,n,q,u) => setIngs(i=>i.map(x=>x.id===id?{...x,name:n,quantity:Number(q),unit:u}:x));
+
+  if (detail) {
+    const r = recipes.find(x=>x.id===detail.id) || detail;
+    return <RecipeDetail recipe={r} ingredients={ings.filter(i=>i.recipeId===r.id)} recipes={recipes}
+      onBack={()=>setDetail(null)} onUpdateRecipe={updateRecipe} onDeleteRecipe={deleteRecipe}
+      onCreateIng={createIng} onDeleteIng={deleteIng} onUpdateIng={updateIng} />;
+  }
+
+  return (
+    <>
+      <nav>
+        <span className="logo">🍳 Recipe Manager</span>
+        <div className="nav-links">
+          <button className={page==="recipes"?"active":""} onClick={()=>setPage("recipes")}>Recipes</button>
+          <button className={page==="ingredients"?"active":""} onClick={()=>setPage("ingredients")}>Ingredients</button>
+        </div>
+      </nav>
+      <div className="container">
+        {page==="recipes"
+          ? <RecipesPage recipes={recipes} ings={ings} onCreate={createRecipe} onDelete={deleteRecipe} onUpdate={updateRecipe} onDetail={setDetail}/>
+          : <IngredientsPage ings={ings} recipes={recipes} onCreate={createIng} onDelete={deleteIng} onUpdate={updateIng}/>
+        }
+      </div>
+    </>
+  );
+}
+
+function RecipesPage({recipes,ings,onCreate,onDelete,onUpdate,onDetail}) {
+  const [showForm,setShowForm]=useState(false);
+  const [edit,setEdit]=useState(null);
+  return (
+    <>
+      <div className="section-header">
+        <h1>Recipes</h1>
+        <button className="btn btn-primary" onClick={()=>{setEdit(null);setShowForm(true);}}>+ New Recipe</button>
+      </div>
+      {showForm&&<RecipeForm initial={edit} onSave={(t,s)=>{edit?onUpdate(edit.id,t,s):onCreate(t,s);setShowForm(false);setEdit(null);}} onCancel={()=>{setShowForm(false);setEdit(null);}}/>}
+      {recipes.length===0
+        ? <div className="empty"><div className="empty-icon">🥘</div><p>No recipes yet.</p></div>
+        : recipes.map(r=>(
+          <div key={r.id} className="card">
+            <div className="card-header">
+              <div>
+                <div className="card-title" onClick={()=>onDetail(r)}>{r.title}</div>
+                <div className="card-meta">{r.steps.length} steps · {ings.filter(i=>i.recipeId===r.id).length} ingredients · <span style={{color:"#bbb"}}>{r.id}</span></div>
+              </div>
+              <div className="card-actions">
+                <button className="btn btn-ghost btn-sm" onClick={()=>onDetail(r)}>View</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>{setEdit(r);setShowForm(true);}}>Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={()=>onDelete(r.id)}>Delete</button>
+              </div>
+            </div>
+          </div>
+        ))
+      }
+    </>
+  );
+}
+
+function RecipeForm({initial,onSave,onCancel}) {
+  const [title,setTitle]=useState(initial?initial.title:"");
+  const [steps,setSteps]=useState(initial?initial.steps:[]);
+  const [si,setSi]=useState("");
+  const add=()=>{if(si.trim()){setSteps(s=>[...s,si.trim()]);setSi("");}};
+  return (
+    <div className="form-panel">
+      <h2>{initial?"Edit Recipe":"New Recipe"}</h2>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Title *</label>
+          <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Pancakes"/>
+        </div>
+      </div>
+      <div className="form-group" style={{marginBottom:"0.75rem"}}>
+        <label>Steps *</label>
+        <div className="steps-input">
+          <input value={si} onChange={e=>setSi(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();add();}}} placeholder="Add a step and press Enter"/>
+          <button className="btn btn-ghost" onClick={add}>Add</button>
+        </div>
+        <div>{steps.map((s,i)=><span key={i} className="step-tag">{i+1}. {s} <button onClick={()=>setSteps(s=>s.filter((_,j)=>j!==i))}>×</button></span>)}</div>
+      </div>
+      <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+        <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-primary" onClick={()=>{if(title&&steps.length>0)onSave(title,steps);}}>
+          {initial?"Save Changes":"Create Recipe"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RecipeDetail({recipe,ingredients,recipes,onBack,onUpdateRecipe,onDeleteRecipe,onCreateIng,onDeleteIng,onUpdateIng}) {
+  const [showIF,setShowIF]=useState(false);
+  const [editI,setEditI]=useState(null);
+  const [editR,setEditR]=useState(false);
+  return (
+    <>
+      <nav><span className="logo">🍳 Recipe Manager</span></nav>
+      <div className="container">
+        <button className="back-btn" onClick={onBack}>← Back to Recipes</button>
+        {editR
+          ? <RecipeForm initial={recipe} onSave={(t,s)=>{onUpdateRecipe(recipe.id,t,s);setEditR(false);}} onCancel={()=>setEditR(false)}/>
+          : (
+            <div className="card" style={{marginBottom:"1.5rem"}}>
+              <div className="card-header">
+                <div>
+                  <h1 style={{marginBottom:"0.25rem"}}>{recipe.title}</h1>
+                  <span className="card-meta">{recipe.id}</span>
+                </div>
+                <div className="card-actions">
+                  <button className="btn btn-ghost btn-sm" onClick={()=>setEditR(true)}>Edit</button>
+                  <button className="btn btn-danger btn-sm" onClick={()=>{onDeleteRecipe(recipe.id);onBack();}}>Delete</button>
+                </div>
+              </div>
+              <div className="steps-list" style={{marginTop:"1rem"}}>
+                <label style={{fontSize:"0.82rem",fontWeight:500,color:"#555",display:"block",marginBottom:"0.5rem"}}>STEPS</label>
+                {recipe.steps.map((s,i)=><div key={i} className="step-item"><span className="step-num">{i+1}</span><span>{s}</span></div>)}
+              </div>
+            </div>
+          )
+        }
+        <div className="section-header">
+          <h2>Ingredients ({ingredients.length})</h2>
+          <button className="btn btn-primary btn-sm" onClick={()=>{setEditI(null);setShowIF(true);}}>+ Add Ingredient</button>
+        </div>
+        {showIF&&<IngredientForm initial={editI} recipeId={recipe.id} recipes={recipes} fixedRecipe={true}
+          onSave={(rid,n,q,u)=>{editI?onUpdateIng(editI.id,n,q,u):onCreateIng(rid,n,q,u);setShowIF(false);setEditI(null);}}
+          onCancel={()=>{setShowIF(false);setEditI(null);}}/>}
+        {ingredients.length===0
+          ? <div className="empty"><div className="empty-icon">🧂</div><p>No ingredients yet.</p></div>
+          : <div className="card">{ingredients.map(ing=>(
+            <div key={ing.id} className="ingredient-row">
+              <div><div className="ingredient-name">{ing.name}</div><div className="ingredient-qty">{ing.id}</div></div>
+              <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
+                <span className="badge">{ing.quantity} {ing.unit}</span>
+                <button className="btn btn-ghost btn-sm" onClick={()=>{setEditI(ing);setShowIF(true);}}>Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={()=>onDeleteIng(ing.id)}>Delete</button>
+              </div>
+            </div>
+          ))}</div>
+        }
+      </div>
+    </>
+  );
+}
+
+function IngredientsPage({ings,recipes,onCreate,onDelete,onUpdate}) {
+  const [showForm,setShowForm]=useState(false);
+  const [edit,setEdit]=useState(null);
+  const getTitle=(id)=>recipes.find(r=>r.id===id)?.title||id;
+  return (
+    <>
+      <div className="section-header">
+        <h1>Ingredients</h1>
+        <button className="btn btn-primary" onClick={()=>{setEdit(null);setShowForm(true);}}>+ New Ingredient</button>
+      </div>
+      {showForm&&<IngredientForm initial={edit} recipeId={edit?edit.recipeId:(recipes[0]?.id||"")} recipes={recipes} fixedRecipe={false}
+        onSave={(rid,n,q,u)=>{edit?onUpdate(edit.id,n,q,u):onCreate(rid,n,q,u);setShowForm(false);setEdit(null);}}
+        onCancel={()=>{setShowForm(false);setEdit(null);}}/>}
+      {ings.length===0
+        ? <div className="empty"><div className="empty-icon">🧂</div><p>No ingredients yet.</p></div>
+        : ings.map(ing=>(
+          <div key={ing.id} className="card">
+            <div className="card-header">
+              <div>
+                <div className="card-title">{ing.name}</div>
+                <div className="card-meta">{getTitle(ing.recipeId)} · <span style={{color:"#bbb"}}>{ing.id}</span></div>
+              </div>
+              <div className="card-actions">
+                <span className="badge">{ing.quantity} {ing.unit}</span>
+                <button className="btn btn-ghost btn-sm" onClick={()=>{setEdit(ing);setShowForm(true);}}>Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={()=>onDelete(ing.id)}>Delete</button>
+              </div>
+            </div>
+          </div>
+        ))
+      }
+    </>
+  );
+}
+
+function IngredientForm({initial,recipeId,recipes,fixedRecipe,onSave,onCancel}) {
+  const [sel,setSel]=useState(recipeId||(recipes[0]?.id||""));
+  const [name,setName]=useState(initial?initial.name:"");
+  const [qty,setQty]=useState(initial?initial.quantity:"");
+  const [unit,setUnit]=useState(initial?initial.unit:"g");
+  return (
+    <div className="form-panel">
+      <h2>{initial?"Edit Ingredient":"New Ingredient"}</h2>
+      {!fixedRecipe&&<div className="form-row"><div className="form-group">
+        <label>Recipe *</label>
+        <select value={sel} onChange={e=>setSel(e.target.value)}>{recipes.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
+      </div></div>}
+      <div className="form-row">
+        <div className="form-group"><label>Name *</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Flour"/></div>
+        <div className="form-group" style={{maxWidth:120}}><label>Quantity *</label><input type="number" value={qty} onChange={e=>setQty(e.target.value)} placeholder="200"/></div>
+        <div className="form-group" style={{maxWidth:100}}><label>Unit *</label>
+          <select value={unit} onChange={e=>setUnit(e.target.value)}>
+            <option>g</option><option>kg</option><option>ml</option><option>l</option><option>pcs</option><option>tsp</option><option>tbsp</option>
+          </select>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+        <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-primary" onClick={()=>{if(name&&qty)onSave(sel,name,qty,unit);}}>
+          {initial?"Save Changes":"Create Ingredient"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
 
