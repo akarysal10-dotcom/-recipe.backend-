@@ -60,8 +60,30 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState } = React;
+const { useState, useEffect } = React;
 
+// ── Hash router ───────────────────────────────────────────────────────────────
+function useRoute() {
+  const [hash, setHash] = useState(window.location.hash || "#/");
+  useEffect(() => {
+    const handler = () => setHash(window.location.hash || "#/");
+    window.addEventListener("hashchange", handler);
+    return () => window.removeEventListener("hashchange", handler);
+  }, []);
+  const navigate = (path) => { window.location.hash = path; };
+  return { hash, navigate };
+}
+
+function parseHash(hash) {
+  const path = hash.replace(/^#/, "") || "/";
+  const parts = path.split("/").filter(Boolean);
+  if (!parts.length)                    return { name: "RecipeList" };
+  if (parts[0] === "ingredients")       return { name: "IngredientsPage" };
+  if (parts[0] === "recipe" && parts[1]) return { name: "RecipeDetail", recipeId: parts[1] };
+  return { name: "RecipeList" };
+}
+
+// ── Data ──────────────────────────────────────────────────────────────────────
 const INIT_RECIPES = [
   { id: "recipe-001", title: "Pancakes", steps: ["Mix ingredients", "Heat the pan", "Cook both sides"] },
   { id: "recipe-002", title: "Omelette", steps: ["Beat eggs", "Add salt and pepper", "Cook on medium heat"] },
@@ -78,68 +100,111 @@ let rc = 3, ic = 6;
 const nrid = () => `recipe-${String(rc++).padStart(3,"0")}`;
 const niid = () => `ingredient-${String(ic++).padStart(3,"0")}`;
 
+// ── App ───────────────────────────────────────────────────────────────────────
 function App() {
-  const [page, setPage]       = useState("recipes");
+  const { hash, navigate } = useRoute();
   const [recipes, setRecipes] = useState(INIT_RECIPES);
   const [ings, setIngs]       = useState(INIT_INGREDIENTS);
-  const [detail, setDetail]   = useState(null);
 
-  const createRecipe  = (t,s) => setRecipes(r=>[...r,{id:nrid(),title:t,steps:s}]);
-  const deleteRecipe  = (id) => { setRecipes(r=>r.filter(x=>x.id!==id)); setIngs(i=>i.filter(x=>x.recipeId!==id)); if(detail&&detail.id===id)setDetail(null); };
-  const updateRecipe  = (id,t,s) => { setRecipes(r=>r.map(x=>x.id===id?{...x,title:t,steps:s}:x)); };
-  const createIng     = (rid,n,q,u) => setIngs(i=>[...i,{id:niid(),recipeId:rid,name:n,quantity:Number(q),unit:u}]);
-  const deleteIng     = (id) => setIngs(i=>i.filter(x=>x.id!==id));
-  const updateIng     = (id,n,q,u) => setIngs(i=>i.map(x=>x.id===id?{...x,name:n,quantity:Number(q),unit:u}:x));
+  const parsed = parseHash(hash);
 
-  if (detail) {
-    const r = recipes.find(x=>x.id===detail.id) || detail;
-    return <RecipeDetail recipe={r} ingredients={ings.filter(i=>i.recipeId===r.id)} recipes={recipes}
-      onBack={()=>setDetail(null)} onUpdateRecipe={updateRecipe} onDeleteRecipe={deleteRecipe}
-      onCreateIng={createIng} onDeleteIng={deleteIng} onUpdateIng={updateIng} />;
+  const createRecipe = (t,s) => setRecipes(r => [...r, { id: nrid(), title: t, steps: s }]);
+  const deleteRecipe = (id)  => { setRecipes(r => r.filter(x => x.id !== id)); setIngs(i => i.filter(x => x.recipeId !== id)); navigate("#/"); };
+  const updateRecipe = (id,t,s) => setRecipes(r => r.map(x => x.id === id ? { ...x, title: t, steps: s } : x));
+  const createIng    = (rid,n,q,u) => setIngs(i => [...i, { id: niid(), recipeId: rid, name: n, quantity: Number(q), unit: u }]);
+  const deleteIng    = (id)  => setIngs(i => i.filter(x => x.id !== id));
+  const updateIng    = (id,n,q,u) => setIngs(i => i.map(x => x.id === id ? { ...x, name: n, quantity: Number(q), unit: u } : x));
+
+  // ── Route: RecipeDetail ──
+  if (parsed.name === "RecipeDetail") {
+    const recipe = recipes.find(x => x.id === parsed.recipeId);
+    if (!recipe) { navigate("#/"); return null; }
+    return (
+      <>
+        <Nav page="recipes" navigate={navigate} />
+        <div className="container">
+          <RecipeDetail
+            recipe={recipe}
+            ingredients={ings.filter(i => i.recipeId === recipe.id)}
+            recipes={recipes}
+            onBack={() => navigate("#/")}
+            onUpdateRecipe={updateRecipe}
+            onDeleteRecipe={(id) => { deleteRecipe(id); navigate("#/"); }}
+            onCreateIng={createIng}
+            onDeleteIng={deleteIng}
+            onUpdateIng={updateIng}
+          />
+        </div>
+      </>
+    );
   }
 
+  // ── Route: IngredientsPage ──
+  if (parsed.name === "IngredientsPage") {
+    return (
+      <>
+        <Nav page="ingredients" navigate={navigate} />
+        <div className="container">
+          <IngredientsPage ings={ings} recipes={recipes} onCreate={createIng} onDelete={deleteIng} onUpdate={updateIng} />
+        </div>
+      </>
+    );
+  }
+
+  // ── Route: RecipeList (default) ──
   return (
     <>
-      <nav>
-        <span className="logo">🍳 Recipe Manager</span>
-        <div className="nav-links">
-          <button className={page==="recipes"?"active":""} onClick={()=>setPage("recipes")}>Recipes</button>
-          <button className={page==="ingredients"?"active":""} onClick={()=>setPage("ingredients")}>Ingredients</button>
-        </div>
-      </nav>
+      <Nav page="recipes" navigate={navigate} />
       <div className="container">
-        {page==="recipes"
-          ? <RecipesPage recipes={recipes} ings={ings} onCreate={createRecipe} onDelete={deleteRecipe} onUpdate={updateRecipe} onDetail={setDetail}/>
-          : <IngredientsPage ings={ings} recipes={recipes} onCreate={createIng} onDelete={deleteIng} onUpdate={updateIng}/>
-        }
+        <RecipesPage recipes={recipes} ings={ings} onCreate={createRecipe} onDelete={deleteRecipe} onUpdate={updateRecipe} onDetail={(r) => navigate(`#/recipe/${r.id}`)} />
       </div>
     </>
   );
 }
 
-function RecipesPage({recipes,ings,onCreate,onDelete,onUpdate,onDetail}) {
-  const [showForm,setShowForm]=useState(false);
-  const [edit,setEdit]=useState(null);
+// ── Nav ───────────────────────────────────────────────────────────────────────
+function Nav({ page, navigate }) {
+  return (
+    <nav>
+      <span className="logo" style={{cursor:"pointer"}} onClick={() => navigate("#/")}>🍳 Recipe Manager</span>
+      <div className="nav-links">
+        <button className={page === "recipes" ? "active" : ""} onClick={() => navigate("#/")}>Recipes</button>
+        <button className={page === "ingredients" ? "active" : ""} onClick={() => navigate("#/ingredients")}>Ingredients</button>
+      </div>
+    </nav>
+  );
+}
+
+// ── RecipesPage ───────────────────────────────────────────────────────────────
+function RecipesPage({ recipes, ings, onCreate, onDelete, onUpdate, onDetail }) {
+  const [showForm, setShowForm] = useState(false);
+  const [edit, setEdit]         = useState(null);
   return (
     <>
       <div className="section-header">
         <h1>Recipes</h1>
-        <button className="btn btn-primary" onClick={()=>{setEdit(null);setShowForm(true);}}>+ New Recipe</button>
+        <button className="btn btn-primary" onClick={() => { setEdit(null); setShowForm(true); }}>+ New Recipe</button>
       </div>
-      {showForm&&<RecipeForm initial={edit} onSave={(t,s)=>{edit?onUpdate(edit.id,t,s):onCreate(t,s);setShowForm(false);setEdit(null);}} onCancel={()=>{setShowForm(false);setEdit(null);}}/>}
-      {recipes.length===0
+      {showForm && (
+        <RecipeForm
+          initial={edit}
+          onSave={(t,s) => { edit ? onUpdate(edit.id,t,s) : onCreate(t,s); setShowForm(false); setEdit(null); }}
+          onCancel={() => { setShowForm(false); setEdit(null); }}
+        />
+      )}
+      {recipes.length === 0
         ? <div className="empty"><div className="empty-icon">🥘</div><p>No recipes yet.</p></div>
-        : recipes.map(r=>(
+        : recipes.map(r => (
           <div key={r.id} className="card">
             <div className="card-header">
               <div>
-                <div className="card-title" onClick={()=>onDetail(r)}>{r.title}</div>
-                <div className="card-meta">{r.steps.length} steps · {ings.filter(i=>i.recipeId===r.id).length} ingredients · <span style={{color:"#bbb"}}>{r.id}</span></div>
+                <div className="card-title" onClick={() => onDetail(r)}>{r.title}</div>
+                <div className="card-meta">{r.steps.length} steps · {ings.filter(i => i.recipeId === r.id).length} ingredients · <span style={{color:"#bbb"}}>{r.id}</span></div>
               </div>
               <div className="card-actions">
-                <button className="btn btn-ghost btn-sm" onClick={()=>onDetail(r)}>View</button>
-                <button className="btn btn-ghost btn-sm" onClick={()=>{setEdit(r);setShowForm(true);}}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={()=>onDelete(r.id)}>Delete</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => onDetail(r)}>View</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setEdit(r); setShowForm(true); }}>Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={() => onDelete(r.id)}>Delete</button>
               </div>
             </div>
           </div>
@@ -149,109 +214,117 @@ function RecipesPage({recipes,ings,onCreate,onDelete,onUpdate,onDetail}) {
   );
 }
 
-function RecipeForm({initial,onSave,onCancel}) {
-  const [title,setTitle]=useState(initial?initial.title:"");
-  const [steps,setSteps]=useState(initial?initial.steps:[]);
-  const [si,setSi]=useState("");
-  const add=()=>{if(si.trim()){setSteps(s=>[...s,si.trim()]);setSi("");}};
+// ── RecipeForm ────────────────────────────────────────────────────────────────
+function RecipeForm({ initial, onSave, onCancel }) {
+  const [title, setTitle] = useState(initial ? initial.title : "");
+  const [steps, setSteps] = useState(initial ? initial.steps : []);
+  const [si, setSi]       = useState("");
+  const add = () => { if (si.trim()) { setSteps(s => [...s, si.trim()]); setSi(""); } };
   return (
     <div className="form-panel">
-      <h2>{initial?"Edit Recipe":"New Recipe"}</h2>
+      <h2>{initial ? "Edit Recipe" : "New Recipe"}</h2>
       <div className="form-row">
         <div className="form-group">
           <label>Title *</label>
-          <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Pancakes"/>
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Pancakes"/>
         </div>
       </div>
       <div className="form-group" style={{marginBottom:"0.75rem"}}>
         <label>Steps *</label>
         <div className="steps-input">
-          <input value={si} onChange={e=>setSi(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();add();}}} placeholder="Add a step and press Enter"/>
+          <input value={si} onChange={e => setSi(e.target.value)} onKeyDown={e => { if (e.key==="Enter") { e.preventDefault(); add(); } }} placeholder="Add a step and press Enter"/>
           <button className="btn btn-ghost" onClick={add}>Add</button>
         </div>
-        <div>{steps.map((s,i)=><span key={i} className="step-tag">{i+1}. {s} <button onClick={()=>setSteps(s=>s.filter((_,j)=>j!==i))}>×</button></span>)}</div>
+        <div>{steps.map((s,i) => <span key={i} className="step-tag">{i+1}. {s} <button onClick={() => setSteps(s => s.filter((_,j) => j!==i))}>×</button></span>)}</div>
       </div>
       <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
         <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-        <button className="btn btn-primary" onClick={()=>{if(title&&steps.length>0)onSave(title,steps);}}>
-          {initial?"Save Changes":"Create Recipe"}
+        <button className="btn btn-primary" onClick={() => { if (title && steps.length > 0) onSave(title, steps); }}>
+          {initial ? "Save Changes" : "Create Recipe"}
         </button>
       </div>
     </div>
   );
 }
 
-function RecipeDetail({recipe,ingredients,recipes,onBack,onUpdateRecipe,onDeleteRecipe,onCreateIng,onDeleteIng,onUpdateIng}) {
-  const [showIF,setShowIF]=useState(false);
-  const [editI,setEditI]=useState(null);
-  const [editR,setEditR]=useState(false);
+// ── RecipeDetail ──────────────────────────────────────────────────────────────
+function RecipeDetail({ recipe, ingredients, recipes, onBack, onUpdateRecipe, onDeleteRecipe, onCreateIng, onDeleteIng, onUpdateIng }) {
+  const [showIF, setShowIF] = useState(false);
+  const [editI, setEditI]   = useState(null);
+  const [editR, setEditR]   = useState(false);
   return (
     <>
-      <nav><span className="logo">🍳 Recipe Manager</span></nav>
-      <div className="container">
-        <button className="back-btn" onClick={onBack}>← Back to Recipes</button>
-        {editR
-          ? <RecipeForm initial={recipe} onSave={(t,s)=>{onUpdateRecipe(recipe.id,t,s);setEditR(false);}} onCancel={()=>setEditR(false)}/>
-          : (
-            <div className="card" style={{marginBottom:"1.5rem"}}>
-              <div className="card-header">
-                <div>
-                  <h1 style={{marginBottom:"0.25rem"}}>{recipe.title}</h1>
-                  <span className="card-meta">{recipe.id}</span>
-                </div>
-                <div className="card-actions">
-                  <button className="btn btn-ghost btn-sm" onClick={()=>setEditR(true)}>Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={()=>{onDeleteRecipe(recipe.id);onBack();}}>Delete</button>
-                </div>
+      <button className="back-btn" onClick={onBack}>← Back to Recipes</button>
+      {editR
+        ? <RecipeForm initial={recipe} onSave={(t,s) => { onUpdateRecipe(recipe.id,t,s); setEditR(false); }} onCancel={() => setEditR(false)}/>
+        : (
+          <div className="card" style={{marginBottom:"1.5rem"}}>
+            <div className="card-header">
+              <div>
+                <h1 style={{marginBottom:"0.25rem"}}>{recipe.title}</h1>
+                <span className="card-meta">{recipe.id}</span>
               </div>
-              <div className="steps-list" style={{marginTop:"1rem"}}>
-                <label style={{fontSize:"0.82rem",fontWeight:500,color:"#555",display:"block",marginBottom:"0.5rem"}}>STEPS</label>
-                {recipe.steps.map((s,i)=><div key={i} className="step-item"><span className="step-num">{i+1}</span><span>{s}</span></div>)}
+              <div className="card-actions">
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditR(true)}>Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={() => onDeleteRecipe(recipe.id)}>Delete</button>
               </div>
             </div>
-          )
-        }
-        <div className="section-header">
-          <h2>Ingredients ({ingredients.length})</h2>
-          <button className="btn btn-primary btn-sm" onClick={()=>{setEditI(null);setShowIF(true);}}>+ Add Ingredient</button>
-        </div>
-        {showIF&&<IngredientForm initial={editI} recipeId={recipe.id} recipes={recipes} fixedRecipe={true}
-          onSave={(rid,n,q,u)=>{editI?onUpdateIng(editI.id,n,q,u):onCreateIng(rid,n,q,u);setShowIF(false);setEditI(null);}}
-          onCancel={()=>{setShowIF(false);setEditI(null);}}/>}
-        {ingredients.length===0
-          ? <div className="empty"><div className="empty-icon">🧂</div><p>No ingredients yet.</p></div>
-          : <div className="card">{ingredients.map(ing=>(
-            <div key={ing.id} className="ingredient-row">
-              <div><div className="ingredient-name">{ing.name}</div><div className="ingredient-qty">{ing.id}</div></div>
-              <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
-                <span className="badge">{ing.quantity} {ing.unit}</span>
-                <button className="btn btn-ghost btn-sm" onClick={()=>{setEditI(ing);setShowIF(true);}}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={()=>onDeleteIng(ing.id)}>Delete</button>
-              </div>
+            <div className="steps-list" style={{marginTop:"1rem"}}>
+              <label style={{fontSize:"0.82rem",fontWeight:500,color:"#555",display:"block",marginBottom:"0.5rem"}}>STEPS</label>
+              {recipe.steps.map((s,i) => <div key={i} className="step-item"><span className="step-num">{i+1}</span><span>{s}</span></div>)}
             </div>
-          ))}</div>
-        }
+          </div>
+        )
+      }
+      <div className="section-header">
+        <h2>Ingredients ({ingredients.length})</h2>
+        <button className="btn btn-primary btn-sm" onClick={() => { setEditI(null); setShowIF(true); }}>+ Add Ingredient</button>
       </div>
+      {showIF && (
+        <IngredientForm
+          initial={editI} recipeId={recipe.id} recipes={recipes} fixedRecipe={true}
+          onSave={(rid,n,q,u) => { editI ? onUpdateIng(editI.id,n,q,u) : onCreateIng(rid,n,q,u); setShowIF(false); setEditI(null); }}
+          onCancel={() => { setShowIF(false); setEditI(null); }}
+        />
+      )}
+      {ingredients.length === 0
+        ? <div className="empty"><div className="empty-icon">🧂</div><p>No ingredients yet.</p></div>
+        : <div className="card">{ingredients.map(ing => (
+          <div key={ing.id} className="ingredient-row">
+            <div><div className="ingredient-name">{ing.name}</div><div className="ingredient-qty">{ing.id}</div></div>
+            <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
+              <span className="badge">{ing.quantity} {ing.unit}</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setEditI(ing); setShowIF(true); }}>Edit</button>
+              <button className="btn btn-danger btn-sm" onClick={() => onDeleteIng(ing.id)}>Delete</button>
+            </div>
+          </div>
+        ))}</div>
+      }
     </>
   );
 }
 
-function IngredientsPage({ings,recipes,onCreate,onDelete,onUpdate}) {
-  const [showForm,setShowForm]=useState(false);
-  const [edit,setEdit]=useState(null);
-  const getTitle=(id)=>recipes.find(r=>r.id===id)?.title||id;
+// ── IngredientsPage ───────────────────────────────────────────────────────────
+function IngredientsPage({ ings, recipes, onCreate, onDelete, onUpdate }) {
+  const [showForm, setShowForm] = useState(false);
+  const [edit, setEdit]         = useState(null);
+  const getTitle = (id) => recipes.find(r => r.id === id)?.title || id;
   return (
     <>
       <div className="section-header">
         <h1>Ingredients</h1>
-        <button className="btn btn-primary" onClick={()=>{setEdit(null);setShowForm(true);}}>+ New Ingredient</button>
+        <button className="btn btn-primary" onClick={() => { setEdit(null); setShowForm(true); }}>+ New Ingredient</button>
       </div>
-      {showForm&&<IngredientForm initial={edit} recipeId={edit?edit.recipeId:(recipes[0]?.id||"")} recipes={recipes} fixedRecipe={false}
-        onSave={(rid,n,q,u)=>{edit?onUpdate(edit.id,n,q,u):onCreate(rid,n,q,u);setShowForm(false);setEdit(null);}}
-        onCancel={()=>{setShowForm(false);setEdit(null);}}/>}
-      {ings.length===0
+      {showForm && (
+        <IngredientForm
+          initial={edit} recipeId={edit ? edit.recipeId : (recipes[0]?.id || "")} recipes={recipes} fixedRecipe={false}
+          onSave={(rid,n,q,u) => { edit ? onUpdate(edit.id,n,q,u) : onCreate(rid,n,q,u); setShowForm(false); setEdit(null); }}
+          onCancel={() => { setShowForm(false); setEdit(null); }}
+        />
+      )}
+      {ings.length === 0
         ? <div className="empty"><div className="empty-icon">🧂</div><p>No ingredients yet.</p></div>
-        : ings.map(ing=>(
+        : ings.map(ing => (
           <div key={ing.id} className="card">
             <div className="card-header">
               <div>
@@ -260,8 +333,8 @@ function IngredientsPage({ings,recipes,onCreate,onDelete,onUpdate}) {
               </div>
               <div className="card-actions">
                 <span className="badge">{ing.quantity} {ing.unit}</span>
-                <button className="btn btn-ghost btn-sm" onClick={()=>{setEdit(ing);setShowForm(true);}}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={()=>onDelete(ing.id)}>Delete</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setEdit(ing); setShowForm(true); }}>Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={() => onDelete(ing.id)}>Delete</button>
               </div>
             </div>
           </div>
@@ -271,31 +344,34 @@ function IngredientsPage({ings,recipes,onCreate,onDelete,onUpdate}) {
   );
 }
 
-function IngredientForm({initial,recipeId,recipes,fixedRecipe,onSave,onCancel}) {
-  const [sel,setSel]=useState(recipeId||(recipes[0]?.id||""));
-  const [name,setName]=useState(initial?initial.name:"");
-  const [qty,setQty]=useState(initial?initial.quantity:"");
-  const [unit,setUnit]=useState(initial?initial.unit:"g");
+// ── IngredientForm ────────────────────────────────────────────────────────────
+function IngredientForm({ initial, recipeId, recipes, fixedRecipe, onSave, onCancel }) {
+  const [sel, setSel]   = useState(recipeId || (recipes[0]?.id || ""));
+  const [name, setName] = useState(initial ? initial.name : "");
+  const [qty, setQty]   = useState(initial ? initial.quantity : "");
+  const [unit, setUnit] = useState(initial ? initial.unit : "g");
   return (
     <div className="form-panel">
-      <h2>{initial?"Edit Ingredient":"New Ingredient"}</h2>
-      {!fixedRecipe&&<div className="form-row"><div className="form-group">
-        <label>Recipe *</label>
-        <select value={sel} onChange={e=>setSel(e.target.value)}>{recipes.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
-      </div></div>}
+      <h2>{initial ? "Edit Ingredient" : "New Ingredient"}</h2>
+      {!fixedRecipe && (
+        <div className="form-row"><div className="form-group">
+          <label>Recipe *</label>
+          <select value={sel} onChange={e => setSel(e.target.value)}>{recipes.map(r => <option key={r.id} value={r.id}>{r.title}</option>)}</select>
+        </div></div>
+      )}
       <div className="form-row">
-        <div className="form-group"><label>Name *</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Flour"/></div>
-        <div className="form-group" style={{maxWidth:120}}><label>Quantity *</label><input type="number" value={qty} onChange={e=>setQty(e.target.value)} placeholder="200"/></div>
+        <div className="form-group"><label>Name *</label><input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Flour"/></div>
+        <div className="form-group" style={{maxWidth:120}}><label>Quantity *</label><input type="number" value={qty} onChange={e => setQty(e.target.value)} placeholder="200"/></div>
         <div className="form-group" style={{maxWidth:100}}><label>Unit *</label>
-          <select value={unit} onChange={e=>setUnit(e.target.value)}>
+          <select value={unit} onChange={e => setUnit(e.target.value)}>
             <option>g</option><option>kg</option><option>ml</option><option>l</option><option>pcs</option><option>tsp</option><option>tbsp</option>
           </select>
         </div>
       </div>
       <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
         <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-        <button className="btn btn-primary" onClick={()=>{if(name&&qty)onSave(sel,name,qty,unit);}}>
-          {initial?"Save Changes":"Create Ingredient"}
+        <button className="btn btn-primary" onClick={() => { if (name && qty) onSave(sel, name, qty, unit); }}>
+          {initial ? "Save Changes" : "Create Ingredient"}
         </button>
       </div>
     </div>
