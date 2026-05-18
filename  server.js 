@@ -4,6 +4,15 @@ const port = 3000;
 
 app.use(express.json());
 
+// Allow frontend to call this API
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
+
 let recipes = [
   {
     id: "recipe-001",
@@ -12,39 +21,91 @@ let recipes = [
   }
 ];
 
+let ingredients = [
+  {
+    id: "ingredient-001",
+    recipeId: "recipe-001",
+    name: "Flour",
+    quantity: 200,
+    unit: "g"
+  }
+];
+
+let nextId = 10;
+const getId = (prefix) => `${prefix}-${nextId++}`;
+
+// Health check
 app.get("/", (req, res) => {
   res.send("Recipe Manager backend is running.");
 });
 
+// === RECIPE endpoints ===
 app.get("/recipe/list", (req, res) => {
   res.json({ itemList: recipes });
 });
 
 app.get("/recipe/get/:id", (req, res) => {
   const recipe = recipes.find(r => r.id === req.params.id);
-
-  if (!recipe) {
-    return res.status(404).json({ error: "Recipe not found" });
-  }
-
+  if (!recipe) return res.status(404).json({ error: "Recipe not found" });
   res.json(recipe);
 });
 
 app.post("/recipe/create", (req, res) => {
   const { title, steps } = req.body;
-
   if (!title || !steps) {
     return res.status(400).json({ error: "title and steps are required" });
   }
-
-  const newRecipe = {
-    id: `recipe-${recipes.length + 1}`,
-    title,
-    steps
-  };
-
+  const newRecipe = { id: getId("recipe"), title, steps };
   recipes.push(newRecipe);
   res.status(201).json(newRecipe);
+});
+
+app.put("/recipe/update/:id", (req, res) => {
+  const idx = recipes.findIndex(r => r.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Recipe not found" });
+  const { title, steps } = req.body;
+  recipes[idx] = { ...recipes[idx], title, steps };
+  res.json(recipes[idx]);
+});
+
+app.delete("/recipe/delete/:id", (req, res) => {
+  const idx = recipes.findIndex(r => r.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Recipe not found" });
+  recipes.splice(idx, 1);
+  ingredients = ingredients.filter(i => i.recipeId !== req.params.id);
+  res.json({ deleted: req.params.id });
+});
+
+// === INGREDIENT endpoints ===
+app.get("/ingredient/list", (req, res) => {
+  const { recipeId } = req.query;
+  const list = recipeId ? ingredients.filter(i => i.recipeId === recipeId) : ingredients;
+  res.json({ itemList: list });
+});
+
+app.post("/ingredient/create", (req, res) => {
+  const { recipeId, name, quantity, unit } = req.body;
+  if (!recipeId || !name) {
+    return res.status(400).json({ error: "recipeId and name are required" });
+  }
+  const newIng = { id: getId("ingredient"), recipeId, name, quantity: quantity || 0, unit: unit || "g" };
+  ingredients.push(newIng);
+  res.status(201).json(newIng);
+});
+
+app.put("/ingredient/update/:id", (req, res) => {
+  const idx = ingredients.findIndex(i => i.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Ingredient not found" });
+  const { name, quantity, unit } = req.body;
+  ingredients[idx] = { ...ingredients[idx], name, quantity: quantity || 0, unit: unit || "g" };
+  res.json(ingredients[idx]);
+});
+
+app.delete("/ingredient/delete/:id", (req, res) => {
+  const idx = ingredients.findIndex(i => i.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Ingredient not found" });
+  ingredients.splice(idx, 1);
+  res.json({ deleted: req.params.id });
 });
 
 app.listen(port, () => {
